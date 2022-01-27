@@ -2,11 +2,11 @@
 // Created by Hannes Bosch 25.01.2022
 
 // Pin configuration
-#define PIN_BTN_MODE    D0
+#define PIN_BTN_MODE    D1
 #define PIN_BTN_LIGHT   D5
 #define PIN_BLINK_L     D6
 #define PIN_BLINK_R     D7
-#define PIN_STATUS_LED  D1
+#define PIN_STATUS_LED  D3
 #define PIN_LEDSTRIPE   D2
 
 // Serial configuration
