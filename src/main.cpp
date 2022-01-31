@@ -12,12 +12,16 @@ struct CarState{
   bool  blinkR;
 } state;
 
+#define LIGHT_FRONT_LEFT 0
+#define LIGHT_FRONT_RIGHT 1
+#define LIGHT_REAR_LEFT 2
+#define LIGHT_REAR_RIGHT 3
+
 #define FX_MODE_CAR_INDICATOR FX_MODE_CUSTOM
 #define FX_MODE_DRIVELIGHT FX_MODE_CUSTOM_1
-#define FX_MODE_MAX_DRIVELIGHT FX_MODE_CUSTOM_2
 uint16_t car_indicator(void);
 uint16_t drive_light(void);
-uint16_t max_drive_light(void);
+
 
 // Neopixel effect library
 // First Led stripe
@@ -29,6 +33,10 @@ Button2 btnMode, btnLight, btnBlinkL, btnBlinkR;
 void btnMode_click(Button2& btn){
   Serial.println("Mode-Button clicked");
 }
+void btnMode_changed(Button2& btn){
+  state.isBraking = btn.isPressed();
+}
+
 void btnLight_click(Button2& btn){
   Serial.println("Light-Button clicked");
   if(!state.lightsOn){
@@ -54,6 +62,7 @@ void btnBlinkR_changed(Button2& btn){
 void setupButtons(){
   btnMode.begin(PIN_BTN_MODE);
   btnMode.setClickHandler(btnMode_click);
+  btnMode.setChangedHandler(btnMode_changed);
   
   btnLight.begin(PIN_BTN_LIGHT);
   btnLight.setClickHandler(btnLight_click);
@@ -80,7 +89,7 @@ void setup() {
   driveLight.init();
   driveLight.setCustomMode(0, F("Blinker"), car_indicator);
   driveLight.setCustomMode(1, F("Abblendlicht"), drive_light);
-  driveLight.setCustomMode(2, F("Fernlicht"), max_drive_light);
+
   //                      index   first                               last                                      mode              color   speed   reverse
   driveLight.setSegment(  0,      0,                                  NUM_LEDS_FRONT/2 - 1,                     FX_MODE_STATIC,   BLACK,  1500,   true);
   driveLight.setSegment(  1,      NUM_LEDS_FRONT/2,                   NUM_LEDS_FRONT - 1,                       FX_MODE_STATIC,   BLACK,  1500,   false);
@@ -106,6 +115,8 @@ bool isBlinkingR = false;
 uint16_t globalTimerInterval = 1000;
 uint32_t lastTimer = 0;
 bool indicatorON = false;
+bool lightsON = false;
+bool brakeLightON = false;
 
 void loop() {
   loopButtons();
@@ -131,15 +142,36 @@ void loop() {
       driveLight.setMode(i, FX_MODE_STATIC);
     }
   }*/
+  uint8_t currentMode = FX_MODE_STATIC;
+
+  if(state.lightsOn && !lightsON){
+    lightsON = true;
+    
+      if(!isBlinkingL) driveLight.setMode(LIGHT_FRONT_LEFT, FX_MODE_DRIVELIGHT);
+      if(!isBlinkingR) driveLight.setMode(LIGHT_FRONT_RIGHT, FX_MODE_DRIVELIGHT);
+      if(!isBlinkingL) driveLight.setMode(LIGHT_REAR_LEFT, FX_MODE_DRIVELIGHT);
+      if(!isBlinkingR) driveLight.setMode(LIGHT_REAR_RIGHT, FX_MODE_DRIVELIGHT);
+
+  }else if (lightsON && ! state.lightsOn){
+    lightsON = false;
+
+      if(!isBlinkingL) driveLight.setMode(LIGHT_FRONT_LEFT, FX_MODE_STATIC);
+      if(!isBlinkingR) driveLight.setMode(LIGHT_FRONT_RIGHT, FX_MODE_STATIC);
+      if(!isBlinkingL) driveLight.setMode(LIGHT_REAR_LEFT, FX_MODE_STATIC);
+      if(!isBlinkingR) driveLight.setMode(LIGHT_REAR_RIGHT, FX_MODE_STATIC);
+
+  }
+
+  if(state.lightsOn) currentMode = FX_MODE_DRIVELIGHT;  // Max-Light gets handled in effect
 
 
   if(state.blinkL && !isBlinkingL){
     driveLight.setMode(0, FX_MODE_CAR_INDICATOR);
     driveLight.setMode(2, FX_MODE_CAR_INDICATOR);
     isBlinkingL = true;
-  }else if (isBlinkingL && !state.blinkL && driveLight.isCycle(2)){
-    driveLight.setMode(0, FX_MODE_STATIC);
-    driveLight.setMode(2, FX_MODE_STATIC);
+  }else if (isBlinkingL && !state.blinkL && driveLight.isCycle(LIGHT_FRONT_LEFT)){
+    driveLight.setMode(0, currentMode);
+    driveLight.setMode(2, currentMode);
     isBlinkingL = false;
   }
 
@@ -147,46 +179,64 @@ void loop() {
     driveLight.setMode(1, FX_MODE_CAR_INDICATOR);
     driveLight.setMode(3, FX_MODE_CAR_INDICATOR);
     isBlinkingR = true;
-  }else if (isBlinkingR && !state.blinkR && driveLight.isCycle(3)){
-    driveLight.setMode(1, FX_MODE_STATIC);
-    driveLight.setMode(3, FX_MODE_STATIC);
+  }else if (isBlinkingR && !state.blinkR && driveLight.isCycle(LIGHT_FRONT_RIGHT)){
+    driveLight.setMode(1, currentMode);
+    driveLight.setMode(3, currentMode);
     isBlinkingR = false;
+  }
+
+  if(state.isBraking && !brakeLightON){
+    driveLight.removeActiveSegment(LIGHT_REAR_LEFT);
+    driveLight.removeActiveSegment(LIGHT_REAR_RIGHT);
+
+    for(int i = NUM_LEDS_FRONT; i < (NUM_LEDS_FRONT + NUM_LEDS_REAR); i++){
+      driveLight.setPixelColor(i, COLOR_BRAKE_LIGHT);
+    }
+    brakeLightON = true;
+  }else if(brakeLightON && !state.isBraking){
+    driveLight.addActiveSegment(LIGHT_REAR_LEFT);
+    driveLight.addActiveSegment(LIGHT_REAR_RIGHT);
+    brakeLightON = false;
   }
 
   driveLight.service();
   statusLed.service();
+}
+uint8_t getSegmentLocation(uint16_t start){
+  if(start == 0) return 0;
+  if(start == NUM_LEDS_FRONT / 2) return 1;
+  if(start == NUM_LEDS_FRONT) return 2;
+  if(start == NUM_LEDS_FRONT + (NUM_LEDS_REAR / 2)) return 3;
+  return 0;
+}
 
+bool isSegmentFront(uint16_t start){
+  uint8_t seg_idx = getSegmentLocation(start);
+  return seg_idx == LIGHT_FRONT_LEFT || seg_idx == LIGHT_FRONT_RIGHT;
+}
 
-  // put your main code here, to run repeatedly:
+bool isSegmentLeft(uint16_t start){
+  uint8_t seg_idx = getSegmentLocation(start);
+  return seg_idx == LIGHT_FRONT_LEFT || seg_idx == LIGHT_REAR_LEFT;
 }
 
 uint16_t drive_light(void){
-  uint32_t driveLightColorFront = 0x999999;
+  uint32_t driveLightColorFront = (state.maxlightsOn)? COLOR_MAX_LIGHT : COLOR_FRONT_LIGHT;
+  uint32_t driveLightColorRear = COLOR_REAR_LIGHT;
   WS2812FX::Segment* seg = driveLight.getSegment();
-  WS2812FX::Segment_runtime* segrt = driveLight.getSegmentRuntime();
-  uint16_t seglen = seg->stop - seg->start + 1;
+  //WS2812FX::Segment_runtime* segrt = driveLight.getSegmentRuntime();
+  //uint16_t seglen = seg->stop - seg->start + 1;
+
+  uint32_t segment_color = isSegmentFront(seg->start)? driveLightColorFront : driveLightColorRear;
 
   for(uint16_t i=seg->start; i <= seg->stop; i++) {
-    driveLight.setPixelColor(i, driveLightColorFront);
+    driveLight.setPixelColor(i, segment_color);
   }
   return 200;
 }
-
-uint16_t max_drive_light(void){
-  uint32_t driveLightColorFront = 0xffffff;
-  WS2812FX::Segment* seg = driveLight.getSegment();
-  WS2812FX::Segment_runtime* segrt = driveLight.getSegmentRuntime();
-  uint16_t seglen = seg->stop - seg->start + 1;
-
-  for(uint16_t i=seg->start; i <= seg->stop; i++) {
-    driveLight.setPixelColor(i, driveLightColorFront);
-  }
-  return 200;
-}
-
 
 uint16_t car_indicator(void) {
-  uint32_t indicator_color = 0xff6a00;
+  uint32_t indicator_color = COLOR_INDICATOR;
 
   // get the current segment
   WS2812FX::Segment* seg = driveLight.getSegment();
