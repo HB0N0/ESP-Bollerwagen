@@ -2,6 +2,7 @@
 #include <WS2812FX.h>
 #include <Button2.h>
 #include "config.h"
+#include "hoverserial.h"
 
 
 struct CarState{
@@ -31,14 +32,19 @@ WS2812FX statusLed = WS2812FX(NUM_STATUS_LEDS, PIN_STATUS_LED, NEO_GRB + NEO_KHZ
 Button2 btnMode, btnLight, btnBlinkL, btnBlinkR;
 
 void btnMode_click(Button2& btn){
-  Serial.println("Mode-Button clicked");
+  #ifdef SERIAL_DEBUG
+    Serial.println("Mode-Button clicked");
+  #endif
 }
 void btnMode_changed(Button2& btn){
   state.isBraking = btn.isPressed();
 }
 
 void btnLight_click(Button2& btn){
-  Serial.println("Light-Button clicked");
+  #ifdef SERIAL_DEBUG
+    Serial.println("Light-Button clicked");
+  #endif
+
   if(!state.lightsOn){
     state.lightsOn = true;
   }else if (!state.maxlightsOn){
@@ -47,10 +53,13 @@ void btnLight_click(Button2& btn){
     state.lightsOn = false;
     state.maxlightsOn = false;
   }
-  Serial.print("Lights: ");
-  Serial.println(state.lightsOn);
-  Serial.print("MaxLights: ");
-  Serial.println(state.maxlightsOn);
+
+  #ifdef SERIAL_DEBUG
+    Serial.print("Lights: ");
+    Serial.println(state.lightsOn);
+    Serial.print("MaxLights: ");
+    Serial.println(state.maxlightsOn);
+  #endif
 }
 void btnBlinkL_changed(Button2& btn){
   state.blinkL = btn.isPressed();
@@ -82,7 +91,9 @@ void loopButtons(){
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
-  Serial.println("Booting...");
+  #ifdef SERIAL_DEBUG
+    Serial.println("Booting...");
+  #endif
   setupButtons();
 
   // Setup WS2812FX
