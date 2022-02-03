@@ -82,6 +82,7 @@ void setupButtons(){
   btnBlinkR.begin(PIN_BLINK_R);
   btnBlinkR.setChangedHandler(btnBlinkR_changed);
 }
+
 void loopButtons(){
   btnMode.loop();
   btnLight.loop();
@@ -96,7 +97,7 @@ void setup() {
   #endif
   setupButtons();
 
-  // Setup WS2812FX
+  // Setup WS2812FX - this is the led stripe for drive illumination
   driveLight.init();
   driveLight.setCustomMode(0, F("Blinker"), car_indicator);
   driveLight.setCustomMode(1, F("Abblendlicht"), drive_light);
@@ -108,15 +109,13 @@ void setup() {
   driveLight.setSegment(  3,      NUM_LEDS_FRONT + NUM_LEDS_REAR / 2, NUM_LEDS_FRONT+NUM_LEDS_REAR - 1,         FX_MODE_STATIC,   BLACK,  1500,   false);
   driveLight.start();
 
-  /*for(int i = 0; i < 4; i++){
-    driveLight.setMode(i, FX_MODE_COLOR_WIPE);
-    driveLight.setColor(i, ORANGE);
-  }*/
-
+  
+  // Statusled is digital but on other pin then rest of stripe
   statusLed.init();
   statusLed.setBrightness(20);
-  statusLed.setMode(FX_MODE_BREATH);
-  statusLed.setColor(BLUE);
+  statusLed.setMode(FX_MODE_STATIC);
+  statusLed.setSpeed(2000);
+  statusLed.setColor(BLACK);
   statusLed.start();
 }
 
@@ -132,6 +131,28 @@ bool brakeLightON = false;
 void loop() {
   loopButtons();
 
+  if(hoverserial_receive()){
+    // New data avaliable
+    
+    // Brake Light lights up when braking, blinks while backward drive
+    state.isBraking = HoverLeds.led4;
+
+    // Status Led
+    if(HoverLeds.led1){
+      // Red Led
+      statusLed.setColor(0xff0000);
+    }else if(HoverLeds.led2){
+      // Yellow Led
+      statusLed.setColor(0xffff00);
+    }else if(HoverLeds.led3){
+      // Green Led
+      statusLed.setColor(0x00ff00);
+    }else{
+      // Black Led
+      statusLed.setColor(BLACK);
+    }
+  }
+
   /* Timer to keep all indicator lights in sync */
   if(isBlinkingL || isBlinkingR){
     if(millis() - lastTimer > globalTimerInterval / 2){
@@ -140,37 +161,30 @@ void loop() {
     }
   }
 
-  /*if(state.maxlightsOn){
-    for(int i = 0; i < 4; i++){
-      driveLight.setMode(i, FX_MODE_MAX_DRIVELIGHT);
-    }
-  }else if (state.lightsOn) {
-    for(int i = 0; i < 4; i++){
-      driveLight.setMode(i, FX_MODE_DRIVELIGHT);
-    }
-  }else{
-    for(int i = 0; i < 4; i++){
-      driveLight.setMode(i, FX_MODE_STATIC);
-    }
-  }*/
   uint8_t currentMode = FX_MODE_STATIC;
 
   if(state.lightsOn && !lightsON){
     lightsON = true;
-    
-      if(!isBlinkingL) driveLight.setMode(LIGHT_FRONT_LEFT, FX_MODE_DRIVELIGHT);
-      if(!isBlinkingR) driveLight.setMode(LIGHT_FRONT_RIGHT, FX_MODE_DRIVELIGHT);
-      if(!isBlinkingL) driveLight.setMode(LIGHT_REAR_LEFT, FX_MODE_DRIVELIGHT);
-      if(!isBlinkingR) driveLight.setMode(LIGHT_REAR_RIGHT, FX_MODE_DRIVELIGHT);
-
+    // Turn Lights on - only if indicator lights are not turned on at the moment
+    if(!isBlinkingL){
+      driveLight.setMode(LIGHT_FRONT_LEFT, FX_MODE_DRIVELIGHT);
+      driveLight.setMode(LIGHT_REAR_LEFT, FX_MODE_DRIVELIGHT);
+    }
+    if(!isBlinkingR){
+      driveLight.setMode(LIGHT_FRONT_RIGHT, FX_MODE_DRIVELIGHT);
+      driveLight.setMode(LIGHT_REAR_RIGHT, FX_MODE_DRIVELIGHT);
+    }
   }else if (lightsON && ! state.lightsOn){
     lightsON = false;
-
-      if(!isBlinkingL) driveLight.setMode(LIGHT_FRONT_LEFT, FX_MODE_STATIC);
-      if(!isBlinkingR) driveLight.setMode(LIGHT_FRONT_RIGHT, FX_MODE_STATIC);
-      if(!isBlinkingL) driveLight.setMode(LIGHT_REAR_LEFT, FX_MODE_STATIC);
-      if(!isBlinkingR) driveLight.setMode(LIGHT_REAR_RIGHT, FX_MODE_STATIC);
-
+    // Reset Lights - only if indicator lights are not turned on at the moment
+    if(!isBlinkingL){
+      driveLight.setMode(LIGHT_FRONT_LEFT, FX_MODE_STATIC);
+      driveLight.setMode(LIGHT_REAR_LEFT, FX_MODE_STATIC);
+    }
+    if(!isBlinkingR){
+      driveLight.setMode(LIGHT_FRONT_RIGHT, FX_MODE_STATIC);
+      driveLight.setMode(LIGHT_REAR_RIGHT, FX_MODE_STATIC);
+    }
   }
 
   if(state.lightsOn) currentMode = FX_MODE_DRIVELIGHT;  // Max-Light gets handled in effect
@@ -213,6 +227,7 @@ void loop() {
   driveLight.service();
   statusLed.service();
 }
+
 uint8_t getSegmentLocation(uint16_t start){
   if(start == 0) return 0;
   if(start == NUM_LEDS_FRONT / 2) return 1;
@@ -235,11 +250,15 @@ uint16_t drive_light(void){
   uint32_t driveLightColorFront = (state.maxlightsOn)? COLOR_MAX_LIGHT : COLOR_FRONT_LIGHT;
   uint32_t driveLightColorRear = COLOR_REAR_LIGHT;
   WS2812FX::Segment* seg = driveLight.getSegment();
-  //WS2812FX::Segment_runtime* segrt = driveLight.getSegmentRuntime();
+  WS2812FX::Segment_runtime* segrt = driveLight.getSegmentRuntime();
   //uint16_t seglen = seg->stop - seg->start + 1;
 
   uint32_t segment_color = isSegmentFront(seg->start)? driveLightColorFront : driveLightColorRear;
 
+  if(segrt->counter_mode_step < 255){
+    segment_color = driveLight.color_blend(BLACK, segment_color, segrt->counter_mode_step);
+    segrt->counter_mode_step += 255/5;
+  }
   for(uint16_t i=seg->start; i <= seg->stop; i++) {
     driveLight.setPixelColor(i, segment_color);
   }

@@ -92,6 +92,9 @@ bool hoverserial_receive()
     return newData;
 }
 
+/**
+* Handles cmdLed byte on hoverboard feedback and reads led values to HoverLeds struct
+*/
 void hoverserial_handleLeds(){
     HoverLeds.led1 = (Feedback.cmdLed & LED1_SET);
     HoverLeds.led2 = (Feedback.cmdLed & LED2_SET);
