@@ -5,7 +5,7 @@
 SerialCommand Command;
 SerialFeedback Feedback;
 SerialFeedback NewFeedback;
-HoverBoardLeds HoverLeds;
+HoverBoardLeds hoverLeds;
 
 uint8_t idx = 0;                        // Index for new data pointer
 uint16_t bufStartFrame;                 // Buffer Start Frame
@@ -93,14 +93,14 @@ bool hoverserial_receive()
 }
 
 /**
-* Handles cmdLed byte on hoverboard feedback and reads led values to HoverLeds struct
+* Handles cmdLed byte on hoverboard feedback and reads led values to hoverLeds struct
 */
 void hoverserial_handleLeds(){
-    HoverLeds.led1 = (Feedback.cmdLed & LED1_SET);
-    HoverLeds.led2 = (Feedback.cmdLed & LED2_SET);
-    HoverLeds.led3 = (Feedback.cmdLed & LED3_SET);
-    HoverLeds.led4 = (Feedback.cmdLed & LED4_SET);
-    HoverLeds.led5 = (Feedback.cmdLed & LED5_SET);
+    hoverLeds.led1 = (Feedback.cmdLed & LED1_SET);
+    hoverLeds.led2 = (Feedback.cmdLed & LED2_SET);
+    hoverLeds.led3 = (Feedback.cmdLed & LED3_SET);
+    hoverLeds.led4 = (Feedback.cmdLed & LED4_SET);
+    hoverLeds.led5 = (Feedback.cmdLed & LED5_SET);
 }
 
 // ########################## LOOP ##########################

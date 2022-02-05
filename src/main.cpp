@@ -13,6 +13,8 @@ struct CarState{
   bool  blinkR;
 } state;
 
+extern HoverBoardLeds hoverLeds;
+
 #define LIGHT_FRONT_LEFT 0
 #define LIGHT_FRONT_RIGHT 1
 #define LIGHT_REAR_LEFT 2
@@ -27,7 +29,7 @@ uint16_t drive_light(void);
 // Neopixel effect library
 // First Led stripe
 WS2812FX driveLight = WS2812FX(NUM_LEDS_FRONT + NUM_LEDS_REAR, PIN_LEDSTRIPE, NEO_GRB + NEO_KHZ800);
-WS2812FX statusLed = WS2812FX(NUM_STATUS_LEDS, PIN_STATUS_LED, NEO_GRB + NEO_KHZ800);
+WS2812FX statusLed = WS2812FX(NUM_STATUS_LEDS, PIN_STATUS_LED, NEO_RGB + NEO_KHZ800);
 
 Button2 btnMode, btnLight, btnBlinkL, btnBlinkR;
 
@@ -135,16 +137,16 @@ void loop() {
     // New data avaliable
     
     // Brake Light lights up when braking, blinks while backward drive
-    state.isBraking = HoverLeds.led4;
+    state.isBraking = hoverLeds.led4;
 
     // Status Led
-    if(HoverLeds.led1){
+    if(hoverLeds.led1){
       // Red Led
       statusLed.setColor(0xff0000);
-    }else if(HoverLeds.led2){
+    }else if(hoverLeds.led2){
       // Yellow Led
-      statusLed.setColor(0xffff00);
-    }else if(HoverLeds.led3){
+      statusLed.setColor(0xff6a00);
+    }else if(hoverLeds.led3){
       // Green Led
       statusLed.setColor(0x00ff00);
     }else{
@@ -254,15 +256,18 @@ uint16_t drive_light(void){
   //uint16_t seglen = seg->stop - seg->start + 1;
 
   uint32_t segment_color = isSegmentFront(seg->start)? driveLightColorFront : driveLightColorRear;
+  uint16_t updateInterval = 200;
 
+  // Fade actual color to light
   if(segrt->counter_mode_step < 255){
-    segment_color = driveLight.color_blend(BLACK, segment_color, segrt->counter_mode_step);
-    segrt->counter_mode_step += 255/5;
+    segment_color = driveLight.color_blend(driveLight.getPixelColor(seg->start), segment_color, segrt->counter_mode_step);
+    segrt->counter_mode_step += 1;
+    updateInterval = 1000 / 255;
   }
   for(uint16_t i=seg->start; i <= seg->stop; i++) {
     driveLight.setPixelColor(i, segment_color);
   }
-  return 200;
+  return updateInterval;
 }
 
 uint16_t car_indicator(void) {
