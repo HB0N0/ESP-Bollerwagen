@@ -2,7 +2,7 @@
 #include "hoverserial.h"
 #include "config.h"
 
-SerialCommand Command;
+SerialSideboard Sideboard;
 SerialFeedback Feedback;
 SerialFeedback NewFeedback;
 HoverBoardLeds hoverLeds;
@@ -13,23 +13,60 @@ byte *p;                                // Pointer declaration for the new recei
 byte incomingByte;
 byte incomingBytePrev;
 
+uint32_t timeoutLastSerial;
+uint8_t timeoutFlagSerial = true;
+
 
 // ########################## SEND ##########################
-void hoverserial_send(){
-  // Create command
-  Command.start    = (uint16_t)START_FRAME;
-  //Command.steer    = (int16_t)uSteer;
-  //Command.speed    = (int16_t)uSpeed;
-  Command.checksum = (uint16_t)(Command.start ^ Command.steer ^ Command.speed);
+uint32_t lastSerialCommand;
+void hoverserial_handleEmergencyStop(bool emergencyStop){
+    if (emergencyStop){
+        if(millis() - lastSerialCommand > SEND_INTERVAL){
 
-  // Write to Serial
-  HOVER_SERIAL.write((uint8_t *) &Command, sizeof(Command)); 
+            // Set Switches
+            uint8_t switch1 = 1;    // 2 Pos Switch || Input          0: ADC,     1: UART
+            uint8_t switch2 = 0;    // 3 Pos Switch || Control Type   0: FOC,     1: SIN,     2: COM
+            uint8_t switch3 = 1;    // 3 Pos Switch || Control Mode   0: VOLT,    1: SPD,     2: TORQ
+            uint8_t switch4 = 0;    // 2 Pos Switch || Field W.       0: Off,     1: ON
+
+            uint16_t cmdSwitch = (uint16_t)(switch1 | switch2 << 1 | switch3 << 3 | switch4 << 5);      
+        
+            // Sensor 1 and Sensor 2
+            uint8_t sensor1 = 0;
+            uint8_t sensor2 = 0;    
+
+            // MPU Status - normally used to indicate if gyro sensor is working
+            uint8_t mpuStatus = 0;
+
+            // Create command
+            Sideboard.start    = (uint16_t) START_FRAME;
+            Sideboard.pitch     = (int16_t) 0;
+            Sideboard.dPitch    = (int16_t) 0;
+            Sideboard.cmd1      = (int16_t) 0;
+            Sideboard.cmd2      = (int16_t) 0; 
+            Sideboard.sensors   = (uint16_t)( (cmdSwitch << 8)  | (sensor1 | (sensor2 << 1) | (mpuStatus << 2)) );
+            Sideboard.checksum  = (uint16_t)(Sideboard.start ^ Sideboard.pitch ^ Sideboard.dPitch ^ Sideboard.cmd1 ^ Sideboard.cmd2 ^ Sideboard.sensors);
+                
+
+            // Write to Serial
+            HOVER_SERIAL.write((uint8_t *) &Sideboard, sizeof(Sideboard));
+            
+            lastSerialCommand = millis();
+        }
+    }
 }
 
 // ########################## RECEIVE ##########################
 bool hoverserial_receive()
 {
     bool newData = false;
+    uint32_t timeNow = millis();
+    
+    // Handle Serial Timeout
+    if(!timeoutFlagSerial   &&    timeNow - timeoutLastSerial > SERIAL_TIMEOUT){
+        timeoutFlagSerial = true;
+    }
+
     // Check for new data availability in the Serial buffer
     if (HOVER_SERIAL.available()) {
         incomingByte 	  = HOVER_SERIAL.read();                                   // Read the incoming byte
@@ -67,6 +104,9 @@ bool hoverserial_receive()
             // Copy the new data
             memcpy(&Feedback, &NewFeedback, sizeof(SerialFeedback));
             hoverserial_handleLeds();
+
+            timeoutFlagSerial = false;
+            timeoutLastSerial = timeNow;
 
             newData = true; // function returns true
             #ifdef SERIAL_DEBUG

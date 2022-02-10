@@ -9,11 +9,14 @@
 
 
 typedef struct{
-   uint16_t start;
-   int16_t  steer;
-   int16_t  speed;
-   uint16_t checksum;
-} SerialCommand;
+  uint16_t  start;
+  int16_t   pitch;      // Angle
+  int16_t   dPitch;     // Angle derivative
+  int16_t   cmd1;       // RC Channel 1
+  int16_t   cmd2;       // RC Channel 2
+  uint16_t  sensors;    // RC Switches and Optical sideboard sensors
+  uint16_t  checksum;
+} SerialSideboard;
 
 typedef struct{
    uint16_t start;
@@ -40,7 +43,7 @@ typedef struct{
     bool led5; 
 } HoverBoardLeds;
 
-void hoverserial_send(void);
+void hoverserial_handleEmergencyStop(bool);
 bool hoverserial_receive(void);
 void hoverserial_handleLeds(void);
 

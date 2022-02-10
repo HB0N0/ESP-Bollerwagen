@@ -11,9 +11,11 @@ struct CarState{
   bool  maxlightsOn;
   bool  blinkL;
   bool  blinkR;
+  bool  emergencyStop;
 } state;
 
 extern HoverBoardLeds hoverLeds;
+extern uint16_t timeoutFlagSerial;
 
 #define LIGHT_FRONT_LEFT 0
 #define LIGHT_FRONT_RIGHT 1
@@ -25,21 +27,32 @@ extern HoverBoardLeds hoverLeds;
 uint16_t car_indicator(void);
 uint16_t drive_light(void);
 
+uint32_t currentMillis;
+
 
 // Neopixel effect library
 // First Led stripe
 WS2812FX driveLight = WS2812FX(NUM_LEDS_FRONT + NUM_LEDS_REAR, PIN_LEDSTRIPE, NEO_GRB + NEO_KHZ800);
 WS2812FX statusLed = WS2812FX(NUM_STATUS_LEDS, PIN_STATUS_LED, NEO_RGB + NEO_KHZ800);
 
-Button2 btnMode, btnLight, btnBlinkL, btnBlinkR;
+Button2 btnMode, btnLight, btnBlinkL, btnBlinkR, btnEmergencyStop;
 
 void btnMode_click(Button2& btn){
   #ifdef SERIAL_DEBUG
     Serial.println("Mode-Button clicked");
   #endif
 }
+
 void btnMode_changed(Button2& btn){
   state.isBraking = btn.isPressed();
+}
+
+void btnEmergencyStop_changed(Button2& btn){
+  #ifdef SERIAL_DEBUG
+    Serial.print("Emergencystop: ");
+    Serial.println(btn.isPressed() == false);
+  #endif
+  state.emergencyStop = btn.isPressed() == false;
 }
 
 void btnLight_click(Button2& btn){
@@ -74,6 +87,9 @@ void setupButtons(){
   btnMode.begin(PIN_BTN_MODE);
   btnMode.setClickHandler(btnMode_click);
   btnMode.setChangedHandler(btnMode_changed);
+
+  btnEmergencyStop.begin(PIN_NC_EMERGENCY);
+  btnEmergencyStop.setChangedHandler(btnEmergencyStop_changed);
   
   btnLight.begin(PIN_BTN_LIGHT);
   btnLight.setClickHandler(btnLight_click);
@@ -90,6 +106,53 @@ void loopButtons(){
   btnLight.loop();
   btnBlinkL.loop();
   btnBlinkR.loop();
+  btnEmergencyStop.loop();
+}
+
+bool emergencyModeON = false;
+uint16_t statusLedCnt = 0;
+uint32_t statusLedLastUpdate = 0;
+
+void toggleColor(WS2812FX& stripe, uint32_t color1){
+  if(stripe.getColor() != BLACK){
+    stripe.setColor(BLACK);
+  }else{
+    stripe.setColor(color1);
+  }
+}
+
+void handleStatusLed(){
+    // Status led gets updated every 10 ms
+    if(currentMillis - statusLedLastUpdate > 10){
+      statusLedCnt ++;
+      statusLedLastUpdate = currentMillis;
+
+      if(timeoutFlagSerial){
+        // In case of serial timeout (the hoverboard sends no data) blink led blue every 120ms
+        if(statusLedCnt % 12 == 0)  toggleColor(statusLed, BLUE);
+      }
+      else if(state.emergencyStop){
+        // In case of emergency stop blink led red every 500ms
+        if(statusLedCnt % 50 == 0)  toggleColor(statusLed, RED);
+      }
+      else if (!timeoutFlagSerial){
+        // Normal case, hoverboard is connected
+        if(hoverLeds.led1){
+          // Red Led - Low battery value or error
+          statusLed.setColor(0xff0000);
+        }else if(hoverLeds.led2){
+          // Yellow Led - Medium battery value
+          statusLed.setColor(0xff6a00);
+        }else if(hoverLeds.led3){
+          // Green Led - Battery full
+          statusLed.setColor(0x00ff00);
+        }else{
+          // Black Led - turn led off (the hoverboard toggles the led values to blink)
+          statusLed.setColor(BLACK);
+        }
+      }
+    }
+    statusLed.service();
 }
 
 void setup() {
@@ -103,8 +166,8 @@ void setup() {
   driveLight.init();
   driveLight.setCustomMode(0, F("Blinker"), car_indicator);
   driveLight.setCustomMode(1, F("Abblendlicht"), drive_light);
-
-  //                      index   first                               last                                      mode              color   speed   reverse
+  
+  // Drive light segments index   first                               last                                      mode              color   speed   reverse
   driveLight.setSegment(  0,      0,                                  NUM_LEDS_FRONT/2 - 1,                     FX_MODE_STATIC,   BLACK,  1500,   true);
   driveLight.setSegment(  1,      NUM_LEDS_FRONT/2,                   NUM_LEDS_FRONT - 1,                       FX_MODE_STATIC,   BLACK,  1500,   false);
   driveLight.setSegment(  2,      NUM_LEDS_FRONT,                     NUM_LEDS_FRONT + (NUM_LEDS_REAR/2 - 1),   FX_MODE_STATIC,   BLACK,  1500,   true);
@@ -116,8 +179,8 @@ void setup() {
   statusLed.init();
   statusLed.setBrightness(20);
   statusLed.setMode(FX_MODE_STATIC);
-  statusLed.setSpeed(2000);
-  statusLed.setColor(BLACK);
+  statusLed.setSpeed(10); //IMPORTANT
+  statusLed.setColor(PINK);
   statusLed.start();
 }
 
@@ -131,35 +194,29 @@ bool lightsON = false;
 bool brakeLightON = false;
 
 void loop() {
+  currentMillis = millis();
   loopButtons();
 
-  if(hoverserial_receive()){
-    // New data avaliable
-    
+  // is new feedback data avaliable ?
+  bool newData = hoverserial_receive();
+  if(newData){
     // Brake Light lights up when braking, blinks while backward drive
     state.isBraking = hoverLeds.led4;
-
-    // Status Led
-    if(hoverLeds.led1){
-      // Red Led
-      statusLed.setColor(0xff0000);
-    }else if(hoverLeds.led2){
-      // Yellow Led
-      statusLed.setColor(0xff6a00);
-    }else if(hoverLeds.led3){
-      // Green Led
-      statusLed.setColor(0x00ff00);
-    }else{
-      // Black Led
-      statusLed.setColor(BLACK);
-    }
   }
+  if(timeoutFlagSerial && state.isBraking){
+    // Reset brake lights on serial timeout
+    state.isBraking = false;
+  }
+
+  handleStatusLed();
+
+    
 
   /* Timer to keep all indicator lights in sync */
   if(isBlinkingL || isBlinkingR){
-    if(millis() - lastTimer > globalTimerInterval / 2){
+    if(currentMillis - lastTimer > globalTimerInterval / 2){
       indicatorON = !indicatorON;
-      lastTimer = millis();
+      lastTimer = currentMillis;
     }
   }
 
@@ -226,8 +283,9 @@ void loop() {
     brakeLightON = false;
   }
 
+  hoverserial_handleEmergencyStop(state.emergencyStop);
+
   driveLight.service();
-  statusLed.service();
 }
 
 uint8_t getSegmentLocation(uint16_t start){
