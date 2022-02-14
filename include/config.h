@@ -40,8 +40,6 @@
 // Resistor values
 #define R_BOTTOM    10000
 #define R_TOP       47000
-// Factor to get back real voltage
-#define ADC_FACTOR (float) 12.0 / (12.0 * (R_BOTTOM / (R_BOTTOM + R_TOP)))
 // Status led feedback
 #define BAT_FULL 12.6
 #define BAT_DEAD 10.5

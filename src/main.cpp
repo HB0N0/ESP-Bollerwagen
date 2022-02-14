@@ -154,8 +154,9 @@ void handleStatusLed(){
         }
       }
       else if(timeoutFlagSerial){
-        // In case of serial timeout (the hoverboard sends no data) blink led blue every 120ms
-        if(statusLedCnt % 12 == 0)  toggleColor(statusLed, BLUE);
+        // In case of serial timeout (the hoverboard sends no data) blink led blue twice every 2s
+        if(statusLedCnt % 200 == 0 || statusLedCnt % 200 == 10)  statusLed.setColor(BLUE);
+        if(statusLedCnt % 200 == 5 || statusLedCnt % 200 == 15)  statusLed.setColor(BLACK);
       }
       else if(state.emergencyStop){
         // In case of emergency stop blink led red every 500ms
