@@ -2,21 +2,18 @@
 #include <WS2812FX.h>
 #include <Button2.h>
 #include "config.h"
+#include "defines.h"
+#include "util.h"
 #include "light.h"
 #include "hoverserial.h"
 
-
-struct CarState{
-  bool  isBraking;
-  bool  lightsOn;
-  bool  maxlightsOn;
-  bool  blinkL;
-  bool  blinkR;
-  bool  emergencyStop;
-} state;
+/* Holds current state of lights*/
+CarState state;
 
 extern HoverBoardLeds hoverLeds;
 extern uint16_t timeoutFlagSerial;
+
+extern float batVoltage;
 
 uint32_t currentMillis;
 
@@ -65,12 +62,28 @@ void btnLight_click(Button2& btn){
     Serial.println(state.maxlightsOn);
   #endif
 }
+
+void handleIndicatorSwitch(Button2& btn){
+  if(btn.isPressed() && btnMode.isPressed()){
+    // Hazard Lights
+    state.blinkR = true;
+    state.blinkL = true;
+    state.hazardLights = true;
+  }else{
+    if(state.hazardLights){
+      state.hazardLights = false;
+    }
+    state.blinkL = btnBlinkL.isPressed();
+    state.blinkR = btnBlinkR.isPressed();
+  }
+}
 void btnBlinkL_changed(Button2& btn){
-  state.blinkL = btn.isPressed();
+  handleIndicatorSwitch(btn);
 }
 void btnBlinkR_changed(Button2& btn){
-  state.blinkR = btn.isPressed();
+  handleIndicatorSwitch(btn);
 }
+
 
 void setupButtons(){
   btnMode.begin(PIN_BTN_MODE);
@@ -115,7 +128,32 @@ void handleStatusLed(){
       statusLedCnt ++;
       statusLedLastUpdate = currentMillis;
 
-      if(timeoutFlagSerial){
+      if(btnMode.isPressed()){
+        // Display battery status of the 12V battery while mode button is presed
+        if(batVoltage < BAT_DEAD){
+          // Dead
+          if(statusLedCnt % 1 == 0)   toggleColor(statusLed, RED); // Blink fast red
+        }else if (batVoltage < BAT_LVL1){
+          // 0%
+          if(statusLedCnt % 30 == 0)  toggleColor(statusLed, RED); // Blink normal red
+        }else if (batVoltage < BAT_LVL2){
+          // 20%
+          statusLed.setColor(RED); // red
+        }else if (batVoltage < BAT_LVL3){
+          // 40%
+          if(statusLedCnt % 30 == 0)  toggleColor(statusLed, 0xff6a00); // Blink normal orange
+        }else if (batVoltage < BAT_LVL4){
+          // 60%
+          statusLed.setColor(0xff6a00); // orange
+        }else if (batVoltage < BAT_LVL5){
+          // 80 %
+          if(statusLedCnt % 30 == 0)  toggleColor(statusLed, GREEN); // Blink normal green
+        }else { 
+          // 100%
+          statusLed.setColor(GREEN); // green
+        }
+      }
+      else if(timeoutFlagSerial){
         // In case of serial timeout (the hoverboard sends no data) blink led blue every 120ms
         if(statusLedCnt % 12 == 0)  toggleColor(statusLed, BLUE);
       }
@@ -148,9 +186,10 @@ void setup() {
   #ifdef SERIAL_DEBUG
     Serial.println("Booting...");
   #endif
+
   setupButtons();
-  
   light_setup();
+
   // Statusled is digital but on other pin then rest of stripe
   statusLed.init();
   statusLed.setBrightness(20);
@@ -169,13 +208,13 @@ void loop() {
   bool newData = hoverserial_receive();
   if(newData){
     // Brake Light lights up when braking, blinks while backward drive
-    state.isBraking = hoverLeds.led4;
+    state.isBraking = hoverLeds.led5;
   }
   if(timeoutFlagSerial && state.isBraking){
     // Reset brake lights on serial timeout
     state.isBraking = false;
   }
-
+  readBatteryVoltage();
   handleStatusLed();
   light_loop();    
   hoverserial_handleEmergencyStop(state.emergencyStop);

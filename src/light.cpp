@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WS2812FX.h>
 #include "config.h"
+#include "defines.h"
 #include "light.h"
 
 #define FX_MODE_CAR_INDICATOR FX_MODE_CUSTOM
@@ -14,6 +15,7 @@ WS2812FX driveLight = WS2812FX(NUM_LEDS_FRONT + NUM_LEDS_REAR, PIN_LEDSTRIPE, NE
 bool isBlinkingL = false;
 bool isBlinkingR = false;
 
+extern uint32_t currentMillis;
 uint16_t globalTimerInterval = 1000;
 uint32_t lastTimer = 0;
 bool indicatorON = false;

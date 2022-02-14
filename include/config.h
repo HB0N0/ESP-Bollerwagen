@@ -24,6 +24,8 @@
 #define NUM_LEDS_FRONT  2 * 5       // Sum of all LEDs in the front (left and right are equally distributed)
 #define NUM_LEDS_REAR   2 * 10      // Sum of all Rear LEDs
 
+#define NUM_STATUS_LEDS 1
+
 // COLORS
 #define COLOR_INDICATOR 0xff6a00
 #define COLOR_REAR_LIGHT 0x220000
@@ -31,5 +33,22 @@
 #define COLOR_FRONT_LIGHT 0x222222
 #define COLOR_MAX_LIGHT 0xffffff
 
-
-#define NUM_STATUS_LEDS 1
+// ADC config - the internal ADC of the WEMOS D1 is used to measure the Voltage of our 2nd battery (12V) over a voltage divider.
+// Configuration of the voltage divider:  +12V --|47k|-- Vin --|10k|-- GND
+#define PIN_BAT     A0
+#define BAT_READ_INTERVAL 500 // ms
+// Resistor values
+#define R_BOTTOM    10000
+#define R_TOP       47000
+// Factor to get back real voltage
+#define ADC_FACTOR (float) 12.0 / (12.0 * (R_BOTTOM / (R_BOTTOM + R_TOP)))
+// Status led feedback
+#define BAT_FULL 12.6
+#define BAT_DEAD 10.5
+// Calculate battery levels
+#define BAT_LVL0    0.0 * (BAT_FULL - BAT_DEAD) + BAT_DEAD
+#define BAT_LVL1    0.2 * (BAT_FULL - BAT_DEAD) + BAT_DEAD
+#define BAT_LVL2    0.4 * (BAT_FULL - BAT_DEAD) + BAT_DEAD
+#define BAT_LVL3    0.6 * (BAT_FULL - BAT_DEAD) + BAT_DEAD
+#define BAT_LVL4    0.8 * (BAT_FULL - BAT_DEAD) + BAT_DEAD
+#define BAT_LVL5    1.0 * (BAT_FULL - BAT_DEAD) + BAT_DEAD

@@ -19,15 +19,26 @@ uint8_t timeoutFlagSerial = true;
 
 // ########################## SEND ##########################
 uint32_t lastSerialCommand;
+bool emergencyStopActive;
+uint16_t resetSentCounter = 0;
 void hoverserial_handleEmergencyStop(bool emergencyStop){
-    if (emergencyStop){
+    if(emergencyStop && !emergencyStopActive){
+         emergencyStopActive = true;
+    }
+
+    if (emergencyStopActive){
         if(millis() - lastSerialCommand > SEND_INTERVAL){
 
             // Set Switches
-            uint8_t switch1 = 1;    // 2 Pos Switch || Input          0: ADC,     1: UART
+            uint8_t switch1 = 0;    // 2 Pos Switch || Input          0: ADC,     1: UART
             uint8_t switch2 = 0;    // 3 Pos Switch || Control Type   0: FOC,     1: SIN,     2: COM
-            uint8_t switch3 = 1;    // 3 Pos Switch || Control Mode   0: VOLT,    1: SPD,     2: TORQ
+            uint8_t switch3 = 0;    // 3 Pos Switch || Control Mode   0: VOLT,    1: SPD,     2: TORQ
             uint8_t switch4 = 0;    // 2 Pos Switch || Field W.       0: Off,     1: ON
+
+            if(emergencyStop){
+                switch1 = 1; // Set Input to UART
+                switch3 = 1; // Set Control Mode to SPD (this results in constant braking when UART cmd2 is set to 0)
+            }
 
             uint16_t cmdSwitch = (uint16_t)(switch1 | switch2 << 1 | switch3 << 3 | switch4 << 5);      
         
@@ -52,6 +63,13 @@ void hoverserial_handleEmergencyStop(bool emergencyStop){
             HOVER_SERIAL.write((uint8_t *) &Sideboard, sizeof(Sideboard));
             
             lastSerialCommand = millis();
+
+            // Reset emergency brake  - the Emergency brake settings will be reset if emergencyStop is not active anymore.
+            // For reliability reasons the struct with the default settings (control=ADC, mode=VLT) gets sent 5 more times.
+            if(!emergencyStop && resetSentCounter++ >= 5){
+                emergencyStopActive = false;
+                resetSentCounter = 0;
+            }
         }
     }
 }
