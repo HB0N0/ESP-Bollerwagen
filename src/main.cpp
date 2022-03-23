@@ -30,7 +30,7 @@ void btnMode_click(Button2& btn){
 }
 
 void btnMode_changed(Button2& btn){
-  state.isBraking = btn.isPressed();
+  //state.isBraking = btn.isPressed();
 }
 
 void btnEmergencyStop_changed(Button2& btn){

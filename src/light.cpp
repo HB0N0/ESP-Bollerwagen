@@ -100,6 +100,7 @@ void light_loop(){
         for(int i = NUM_LEDS_FRONT; i < (NUM_LEDS_FRONT + NUM_LEDS_REAR); i++){
             driveLight.setPixelColor(i, COLOR_BRAKE_LIGHT);
         }
+        driveLight.trigger();
         brakeLightON = true;
     }else if(brakeLightON && !state.isBraking){
         driveLight.addActiveSegment(LIGHT_REAR_LEFT);
