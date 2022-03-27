@@ -3,8 +3,8 @@
 
 // Pin configuration
 #define PIN_BTN_LIGHT    D2
-#define PIN_BLINK_L      D6
-#define PIN_BLINK_R      D7
+#define PIN_BLINK_L      D7
+#define PIN_BLINK_R      D6
 #define PIN_NC_EMERGENCY D1
 #define PIN_BTN_MODE     D5
 #define PIN_STATUS_LED   D4
@@ -21,8 +21,8 @@
 //#define DEBUG_RX // if defined all incoming bytes will be printed to console
 
 // Neopixel configuration
-#define NUM_LEDS_FRONT  2 * 5       // Sum of all LEDs in the front (left and right are equally distributed)
-#define NUM_LEDS_REAR   2 * 10      // Sum of all Rear LEDs
+#define NUM_LEDS_FRONT  2 * 8       // Sum of all LEDs in the front (left and right are equally distributed)
+#define NUM_LEDS_REAR   2 * 28      // Sum of all Rear LEDs
 
 #define NUM_STATUS_LEDS 1
 
