@@ -7,20 +7,27 @@
 #include "light.h"
 #include "hoverserial.h"
 
-/* Holds current state of lights*/
+/* Holds current state of the Car -
+   these values get updated by user inputs (like button press)
+  and the serial feedback of the hoverboard mainboard */
 CarState state;
 
+/* Serial variables (used here for updating the status led) */
 extern HoverBoardLeds hoverLeds;
 extern uint16_t timeoutFlagSerial;
 
+/* Real battery voltage calculated from ADC reading (in our case the Voltage of a 12V car battery)*/
 extern float batVoltage;
 
+/* for performance reasons current millis gets updated only once per loop by calling millis() */
 uint32_t currentMillis;
 
 
 // Neopixel effect library is also used for the status led
+// Notice: the effects and logic of the "drive lights" is located in "lights.cpp"
 WS2812FX statusLed = WS2812FX(NUM_STATUS_LEDS, PIN_STATUS_LED, NEO_RGB + NEO_KHZ800);
 
+// Init Buttons
 Button2 btnMode, btnLight, btnBlinkL, btnBlinkR, btnEmergencyStop;
 
 void btnMode_click(Button2& btn){
@@ -111,7 +118,8 @@ void loopButtons(){
   btnEmergencyStop.loop();
 }
 
-uint16_t statusLedCnt = 0;
+
+uint16_t statusLedCnt = 0; // counter increases by one every 10 ms
 uint32_t statusLedLastUpdate = 0;
 
 void toggleColor(WS2812FX& stripe, uint32_t color1){
