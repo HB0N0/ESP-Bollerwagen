@@ -100,7 +100,7 @@ void setupButtons(){
   btnEmergencyStop.begin(PIN_NC_EMERGENCY);
   btnEmergencyStop.setChangedHandler(btnEmergencyStop_changed);
   // read current state after reboot
-  state.emergencyStop = btn.isPressed() == false;
+  state.emergencyStop = btnEmergencyStop.isPressed() == false;
   
   btnLight.begin(PIN_BTN_LIGHT);
   btnLight.setClickHandler(btnLight_click);
