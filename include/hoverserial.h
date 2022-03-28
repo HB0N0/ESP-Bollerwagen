@@ -37,9 +37,9 @@ typedef struct{
     bool led2; 
     /// Battery green
     bool led3; 
-    /// Bottom blue led (on IF motors enabled; ELSE blinking)
+    /// Bottom blue led (on IF backward drive; ELSE off)
     bool led4; 
-    /// Upper blue led (blinking IF backward drive; on IF braking; ELSE off)
+    /// Upper blue led (on IF braking; ELSE off)
     bool led5; 
 } HoverBoardLeds;
 
