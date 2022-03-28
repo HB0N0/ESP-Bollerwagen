@@ -19,7 +19,7 @@ uint8_t timeoutFlagSerial = true;
 
 // ########################## SEND ##########################
 uint32_t lastSerialCommand;
-bool emergencyStopActive;
+bool emergencyStopActive = false;
 uint16_t resetSentCounter = 0;
 void hoverserial_handleEmergencyStop(bool emergencyStop){
     if(emergencyStop && !emergencyStopActive){
@@ -35,8 +35,13 @@ void hoverserial_handleEmergencyStop(bool emergencyStop){
             uint8_t switch3 = 0;    // 3 Pos Switch || Control Mode   0: VOLT,    1: SPD,     2: TORQ
             uint8_t switch4 = 0;    // 2 Pos Switch || Field W.       0: Off,     1: ON
 
+
+            switch1 = 1; // Set Input to UART
+            // To change the other Parameters the current input of the hoverboard must be set to UART!
+            // While emergency stop mode the ESP sends continuos brake signal. If emergency stop mode ends the ESP sends 5 more times reset brake command.
+            // After that nothing will be transmittet on the Serial Bus - the hoverboard changs to ADC-input automatically if no UART Signal is received.
+
             if(emergencyStop){
-                switch1 = 1; // Set Input to UART
                 switch3 = 1; // Set Control Mode to SPD (this results in constant braking when UART cmd2 is set to 0)
             }
 
@@ -66,7 +71,7 @@ void hoverserial_handleEmergencyStop(bool emergencyStop){
 
             // Reset emergency brake  - the Emergency brake settings will be reset if emergencyStop is not active anymore.
             // For reliability reasons the struct with the default settings (control=ADC, mode=VLT) gets sent 5 more times.
-            if(!emergencyStop && resetSentCounter++ >= 5){
+            if(!emergencyStop && resetSentCounter++ >= 10){
                 emergencyStopActive = false;
                 resetSentCounter = 0;
             }
