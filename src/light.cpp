@@ -28,11 +28,11 @@ void light_setup(){
     driveLight.setCustomMode(0, F("Blinker"), car_indicator);
     driveLight.setCustomMode(1, F("Abblendlicht"), drive_light);
 
-    // Drive light segments index   first                               last                                      mode              color   speed   reverse
-    driveLight.setSegment(  0,      0,                                  NUM_LEDS_FRONT/2 - 1,                     FX_MODE_STATIC,   BLACK,  1500,   true);
-    driveLight.setSegment(  1,      NUM_LEDS_FRONT/2,                   NUM_LEDS_FRONT - 1,                       FX_MODE_STATIC,   BLACK,  1500,   false);
-    driveLight.setSegment(  2,      NUM_LEDS_FRONT,                     NUM_LEDS_FRONT + (NUM_LEDS_REAR/2 - 1),   FX_MODE_STATIC,   BLACK,  1500,   true);
-    driveLight.setSegment(  3,      NUM_LEDS_FRONT + NUM_LEDS_REAR / 2, NUM_LEDS_FRONT+NUM_LEDS_REAR - 1,         FX_MODE_STATIC,   BLACK,  1500,   false);
+    // Drive light segments index                 first                               last                                      mode              color   speed   reverse
+    driveLight.setSegment(  LIGHT_FRONT_LEFT,      0,                                  NUM_LEDS_FRONT/2 - 1,                     FX_MODE_STATIC,   BLACK,  1500,   true);
+    driveLight.setSegment(  LIGHT_FRONT_RIGHT,     NUM_LEDS_FRONT/2,                   NUM_LEDS_FRONT - 1,                       FX_MODE_STATIC,   BLACK,  1500,   false);
+    driveLight.setSegment(  LIGHT_REAR_RIGHT,      NUM_LEDS_FRONT,                     NUM_LEDS_FRONT + (NUM_LEDS_REAR/2 - 1),   FX_MODE_STATIC,   BLACK,  1500,   true);
+    driveLight.setSegment(  LIGHT_REAR_LEFT,       NUM_LEDS_FRONT + NUM_LEDS_REAR / 2, NUM_LEDS_FRONT+NUM_LEDS_REAR - 1,         FX_MODE_STATIC,   BLACK,  1500,   false);
     driveLight.start();
 }
 void light_loop(){
@@ -74,40 +74,42 @@ void light_loop(){
 
 
     if(state.blinkL && !isBlinkingL){
-        driveLight.setMode(0, FX_MODE_CAR_INDICATOR);
-        driveLight.setMode(2, FX_MODE_CAR_INDICATOR);
+        driveLight.setMode(LIGHT_FRONT_LEFT, FX_MODE_CAR_INDICATOR);
+        driveLight.setMode(LIGHT_REAR_LEFT, FX_MODE_CAR_INDICATOR);
         isBlinkingL = true;
     }else if (isBlinkingL && !state.blinkL && driveLight.isCycle(LIGHT_FRONT_LEFT)){
-        driveLight.setMode(0, currentMode);
-        driveLight.setMode(2, currentMode);
+        driveLight.setMode(LIGHT_FRONT_LEFT, currentMode);
+        driveLight.setMode(LIGHT_REAR_LEFT, currentMode);
         isBlinkingL = false;
     }
 
     if(state.blinkR && !isBlinkingR){
-        driveLight.setMode(1, FX_MODE_CAR_INDICATOR);
-        driveLight.setMode(3, FX_MODE_CAR_INDICATOR);
+        driveLight.setMode(LIGHT_FRONT_RIGHT, FX_MODE_CAR_INDICATOR);
+        driveLight.setMode(LIGHT_REAR_RIGHT, FX_MODE_CAR_INDICATOR);
         isBlinkingR = true;
     }else if (isBlinkingR && !state.blinkR && driveLight.isCycle(LIGHT_FRONT_RIGHT)){
-        driveLight.setMode(1, currentMode);
-        driveLight.setMode(3, currentMode);
+        driveLight.setMode(LIGHT_FRONT_RIGHT, currentMode);
+        driveLight.setMode(LIGHT_REAR_RIGHT, currentMode);
         isBlinkingR = false;
     }
 
     if(state.isBraking && !brakeLightON){
+        // prevents WS8266FX from updating this segment and overwriting brake lights
         driveLight.removeActiveSegment(LIGHT_REAR_LEFT);
         driveLight.removeActiveSegment(LIGHT_REAR_RIGHT);
 
         for(int i = NUM_LEDS_FRONT; i < (NUM_LEDS_FRONT + NUM_LEDS_REAR); i++){
             driveLight.setPixelColor(i, COLOR_BRAKE_LIGHT);
         }
+        // force new frame update to make sure the brake gets immediately visible
         driveLight.trigger();
         brakeLightON = true;
+
     }else if(brakeLightON && !state.isBraking){
         driveLight.addActiveSegment(LIGHT_REAR_LEFT);
         driveLight.addActiveSegment(LIGHT_REAR_RIGHT);
         brakeLightON = false;
     }
-
     driveLight.service();
 }
 
