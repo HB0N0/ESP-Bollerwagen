@@ -17,8 +17,9 @@
 #define START_FRAME     0xABCD // Do not change!
 #define SERIAL_TIMEOUT  50  // ms
 #define SEND_INTERVAL   100
-//#define SERIAL_DEBUG    // if defined debug output is printed to serial
+#define SERIAL_DEBUG    // if defined debug output is printed to serial
 //#define DEBUG_RX // if defined all incoming bytes will be printed to console
+#define DEBUG_INCOMING
 
 // Neopixel configuration
 #define NUM_LEDS_FRONT  2 * 8       // Sum of all LEDs in the front (left and right are equally distributed)

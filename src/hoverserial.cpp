@@ -132,7 +132,7 @@ bool hoverserial_receive()
             timeoutLastSerial = timeNow;
 
             newData = true; // function returns true
-            #ifdef SERIAL_DEBUG
+            #if defined(SERIAL_DEBUG) && defined(DEBUG_INCOMING)
                 // Print data to built-in Serial
                 Serial.print("cmd1: ");   Serial.print(Feedback.cmd1);
                 Serial.print(" cmd2: ");  Serial.print(Feedback.cmd2);
